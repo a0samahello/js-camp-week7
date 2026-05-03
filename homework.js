@@ -25,6 +25,7 @@ const ADMIN_TOKEN = process.env.API_KEY;
 function formatOrderDate(timestamp) {
   // 請實作此函式
   // 提示：dayjs.unix(timestamp).format('YYYY/MM/DD HH:mm')
+  return dayjs.unix(timestamp).format('YYYY/MM/DD HH:mm');
 }
 
 /**
@@ -38,6 +39,16 @@ function getDaysAgo(timestamp) {
   // 1. 用 dayjs() 取得今天
   // 2. 用 dayjs.unix(timestamp) 取得訂單日期
   // 3. 用 .diff() 計算天數差異
+  const today = dayjs();
+  // unix() 會將秒轉換為 dayjs 物件
+  const orderDate = dayjs.unix(timestamp);
+  //.diff() 第一個參數是要比較的日期，第二個參數是單位（day）
+  const diffDays = today.diff(orderDate, 'day');
+
+  if (diffDays === 0) {
+    return '今天';
+  }
+  return `${diffDays} 天前`;
 }
 
 /**
@@ -47,6 +58,10 @@ function getDaysAgo(timestamp) {
  */
 function isOrderOverdue(timestamp) {
   // 請實作此函式
+  const today = dayjs();
+  const orderDate = dayjs.unix(timestamp);
+  const diffDays = today.diff(orderDate, 'day');
+  return diffDays > 7;
 }
 
 /**
@@ -60,6 +75,13 @@ function getThisWeekOrders(orders) {
   // 1. 用 dayjs().startOf('week') 取得本週開始
   // 2. 用 dayjs().endOf('week') 取得本週結束
   // 3. 用 .isBefore() 和 .isAfter() 判斷
+  const startOfWeek = dayjs().startOf('week');
+  const endOfWeek = dayjs().endOf('week');
+
+  return orders.filter(order => {
+    const orderDate = dayjs.unix(order.createdAt);
+    return orderDate.isAfter(startOfWeek) && orderDate.isBefore(endOfWeek);
+  });
 }
 
 // ========================================
@@ -80,6 +102,33 @@ function getThisWeekOrders(orders) {
  */
 function validateOrderUser(data) {
   // 請實作此函式
+  const errors = [];
+  // .trim() 可以去除字串前後的空白，確保使用者輸入的內容不是只有空格
+  if (!data.name || data.name.trim() === '') {
+    errors.push('姓名不可為空');
+  }
+  // ^09\d{8}$/ 是一個正則表達式，表示必須以 09 開頭，後面跟著 8 個數字，總共 10 位數字
+  // .test() 找是否符合規則
+  // .test() 方法會檢查 data.tel 是否符合這個格式，如果不符合就會回傳 false，並加入錯誤訊息
+  if (!data.tel || !/^09\d{8}$/.test(data.tel)) {
+    errors.push('電話號碼必須是 09 開頭的 10 位數字');
+  }
+  // .includes() 找是否包含特定內容，具體內容
+  // .includes() 方法會檢查 data.email 是否包含 @ 符號，如果不包含就會回傳 false，並加入錯誤訊息
+  if (!data.email || !data.email.includes('@')) {
+    errors.push('電子郵件必須包含 @ 符號');
+  }
+  if (!data.address || data.address.trim() === '') {
+    errors.push('地址不可為空');
+  }
+  if (!data.payment || !['ATM', 'Credit Card', 'Apple Pay'].includes(data.payment)) {
+    errors.push('付款方式必須是 ATM、Credit Card 或 Apple Pay');
+  }
+
+  return {
+    isValid: errors.length === 0,
+    errors
+  };
 }
 
 /**
@@ -94,6 +143,14 @@ function validateOrderUser(data) {
  */
 function validateCartQuantity(quantity) {
   // 請實作此函式
+  // .isInteger() 可以檢查是否為整數，確保使用者輸入的數量不是小數或其他非數字類型
+  if (!Number.isInteger(quantity) || quantity < 1 || quantity > 99) {
+    return {
+      isValid: false,
+      error: '數量必須是 1 到 99 的正整數'
+    };
+  }
+  return { isValid: true };
 }
 
 // ========================================
@@ -107,6 +164,9 @@ function validateCartQuantity(quantity) {
 function generateOrderId() {
   // 請實作此函式
   // 提示：可以用 Date.now().toString(36) + Math.random().toString(36).slice(2)
+  // 1. Date.now() 會回傳目前的 Unix timestamp（毫秒），轉成 36進位 可以得到一串較短的字串
+  // 2. Math.random() 會回傳一個 0 到 1 的隨機小數，轉成 36進位 並去掉前2位 '0.' 就可以得到一串隨機字串
+  return `ORD-${Date.now().toString(36)}${Math.random().toString(36).slice(2)}`;
 }
 
 /**
@@ -115,6 +175,8 @@ function generateOrderId() {
  */
 function generateCartItemId() {
   // 請實作此函式
+  // Date.now() 和 Math.random() 的組合可以確保每次呼叫都會產生不同的 ID，減少重複的機率
+  return `CART-${Date.now().toString(36)}${Math.random().toString(36).slice(2)}`;
 }
 
 // ========================================
@@ -129,6 +191,13 @@ async function getProductsWithAxios() {
   // 請實作此函式
   // 提示：axios.get() 會自動解析 JSON，不需要 .json()
   // 回傳 response.data.products
+  try {
+    const response = await axios.get(`${BASE_URL}${API_PATH}/products`);
+    return response.data.products;
+  } catch (error) {
+    console.error('取得產品列表失敗:', error.message);
+    return undefined; // 發生錯誤時回傳 undefined
+  }
 }
 
 /**
@@ -140,6 +209,13 @@ async function getProductsWithAxios() {
 async function addToCartWithAxios(productId, quantity) {
   // 請實作此函式
   // 提示：axios.post(url, data) 會自動設定 Content-Type
+  try {
+    const response = await axios.post(`${BASE_URL}${API_PATH}/cart`, { productId, quantity });
+    return response.data;
+  } catch (error) {
+    console.error('加入購物車失敗:', error.message);
+    return undefined;
+  }
 }
 
 /**
@@ -149,16 +225,28 @@ async function addToCartWithAxios(productId, quantity) {
 async function getOrdersWithAxios() {
   // 請實作此函式
   // 提示：axios.get(url, { headers: { authorization: token } })
+  try {
+    const response = await axios.get(`${BASE_URL}${API_PATH}/orders`, {
+      headers: { authorization: this.token }
+    });
+    return response.data;
+  } catch (error) {
+    console.error('取得訂單失敗:', error.message);
+    return undefined;
+  }
 }
 
 /*
 比較題：請說明 fetch 和 axios 的主要差異
 
-1. ____________________________________
+1. fetch 是瀏覽器內建的 API，使用原生 JavaScript 實作；axios 是第三方套件，需要額外安裝。
 
-2. ____________________________________
+2. fetch 需要手動解析 JSON（response.json()），而 axios 會自動解析回傳的 JSON 資料。
 
-3. ____________________________________
+3. fetch 的錯誤處理較為麻煩，只有網路錯誤才會觸發 catch，必須自己寫 if (!res.ok) 來判斷；
+axios 會對 HTTP 狀態碼進行判斷，非 2xx 的回應也會觸發 catch。
+
+4. axios 支援請求攔截器和回應攔截器，可以在請求或回應前進行處理；fetch 沒有這樣的功能。
 */
 
 // ========================================
@@ -179,6 +267,15 @@ const OrderService = {
    */
   async fetchOrders() {
     // 請實作此函式
+    try {
+      const response = await axios.get(`${this.baseURL}${this.apiPath}/orders`, {
+        headers: { authorization: this.token }
+      });
+      return response.data;
+    } catch (error) {
+      console.error('取得訂單失敗:', error.message);
+      return undefined;
+    }
   },
 
   /**
@@ -188,6 +285,12 @@ const OrderService = {
    */
   formatOrders(orders) {
     // 請實作此函式
+    // .map() 可以對陣列中的每個元素進行轉換，回傳一個新的陣列，不會改動到原始的 orders
+    return orders.map(order => ({
+      // ...展開原本的訂單資料，並新增 formattedDate 欄位
+      ...order,
+      formattedDate: formatOrderDate(order.createdAt) // 在新物件裡，新增 formattedDate 欄位
+    }));
   },
 
   /**
@@ -197,6 +300,8 @@ const OrderService = {
    */
   filterUnpaidOrders(orders) {
     // 請實作此函式
+    // 篩選 = filter()，回傳符合條件的元素，這裡條件是 order.paid 為 false，用!
+    return orders.filter(order => !order.paid);
   },
 
   /**
