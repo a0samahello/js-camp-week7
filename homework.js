@@ -192,11 +192,11 @@ async function getProductsWithAxios() {
   // 提示：axios.get() 會自動解析 JSON，不需要 .json()
   // 回傳 response.data.products
   try {
-    const response = await axios.get(`${BASE_URL}${API_PATH}/products`);
+    const response = await axios.get(`${BASE_URL}/api/livejs/v1/customer/${API_PATH}/products`);
     return response.data.products;
   } catch (error) {
     console.error('取得產品列表失敗:', error.message);
-    return undefined; // 發生錯誤時回傳 undefined
+    return []; // 發生錯誤時回傳空陣列
   }
 }
 
@@ -210,11 +210,16 @@ async function addToCartWithAxios(productId, quantity) {
   // 請實作此函式
   // 提示：axios.post(url, data) 會自動設定 Content-Type
   try {
-    const response = await axios.post(`${BASE_URL}${API_PATH}/cart`, { productId, quantity });
+    const response = await axios.post(`${BASE_URL}/api/livejs/v1/customer/${API_PATH}/carts`, {
+      data: {
+        productId,
+        quantity
+      }
+    });
     return response.data;
   } catch (error) {
     console.error('加入購物車失敗:', error.message);
-    return undefined;
+    return []; // 發生錯誤時回傳空陣列
   }
 }
 
@@ -226,13 +231,13 @@ async function getOrdersWithAxios() {
   // 請實作此函式
   // 提示：axios.get(url, { headers: { authorization: token } })
   try {
-    const response = await axios.get(`${BASE_URL}${API_PATH}/orders`, {
-      headers: { authorization: this.token }
+    const response = await axios.get(`${BASE_URL}/api/livejs/v1/customer/${API_PATH}/orders`, {
+      headers: { authorization: token }
     });
     return response.data;
   } catch (error) {
     console.error('取得訂單失敗:', error.message);
-    return undefined;
+    return []; // 發生錯誤時回傳空陣列
   }
 }
 
@@ -268,13 +273,13 @@ const OrderService = {
   async fetchOrders() {
     // 請實作此函式
     try {
-      const response = await axios.get(`${this.baseURL}${this.apiPath}/orders`, {
-        headers: { authorization: this.token }
+      const response = await axios.get(`${BASE_URL}/api/livejs/v1/customer/${API_PATH}/orders`, {
+        headers: { authorization: token }
       });
       return response.data;
     } catch (error) {
       console.error('取得訂單失敗:', error.message);
-      return undefined;
+      return []; // 發生錯誤時回傳空陣列
     }
   },
 
